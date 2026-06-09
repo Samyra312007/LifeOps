@@ -26,6 +26,6 @@ dist-ssr
 .config/
 !.env
 
-# Markdown spec/docs (except README)
-*.md
+# Markdown spec/docs at root level (except README)
+/*.md
 !README.md
