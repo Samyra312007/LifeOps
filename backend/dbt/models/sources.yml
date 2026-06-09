@@ -1,0 +1,44 @@
+version: 2
+
+sources:
+  - name: lifeops
+    dataset: lifeops
+    tables:
+      - name: raw_events
+        columns:
+          - name: user_id
+            description: "User identifier"
+          - name: event_type
+            description: "Type of event"
+          - name: domain
+            description: "Life domain"
+          - name: payload
+            description: "Event payload"
+          - name: event_timestamp
+            description: "When event occurred"
+
+      - name: pattern_signals
+        columns:
+          - name: user_id
+            description: "User identifier"
+          - name: pattern_type
+            description: "Type of behavioral pattern"
+          - name: confidence
+            description: "Pattern detection confidence score"
+          - name: signal_date
+            description: "Date signal was generated"
+          - name: severity
+            description: "Severity level"
+
+      - name: subscriptions
+        columns:
+          - name: user_id
+            description: "User identifier"
+          - name: subscription_tier
+            description: "Free / Pro / Enterprise"
+          - name: subscription_date
+            description: "Start date of subscription"
+          - name: subscription_status
+            description: "Active / Canceled / Past Due"
+          - name: mrr
+            description: "Monthly recurring revenue"

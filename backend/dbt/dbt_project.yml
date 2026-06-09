@@ -1,0 +1,25 @@
+name: "lifeops"
+version: "1.0"
+config-version: 2
+profile: "lifeops"
+
+model-paths: ["models"]
+seed-paths: ["seeds"]
+test-paths: ["tests"]
+analysis-paths: ["analyses"]
+macro-paths: ["macros"]
+
+target-path: "target"
+clean-targets:
+  - "target"
+  - "dbt_packages"
+
+models:
+  lifeops:
+    +materialized: table
+    +partition_by:
+      field: date
+      data_type: date
+    +cluster_by:
+      - user_id
+    +schema: enriched
