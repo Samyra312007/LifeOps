@@ -1,3 +1,4 @@
+import asyncio
 from elasticsearch import AsyncElasticsearch
 from typing import Optional
 from app.config import settings
@@ -10,8 +11,12 @@ async def connect_elasticsearch():
     es_client = AsyncElasticsearch(
         hosts=[settings.elasticsearch_host],
         api_key=settings.elasticsearch_api_key,
+        request_timeout=3,
     )
-    await es_client.info()
+    try:
+        await asyncio.wait_for(es_client.info(), timeout=3)
+    except Exception:
+        pass
     return es_client
 
 

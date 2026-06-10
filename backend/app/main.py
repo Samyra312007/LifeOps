@@ -1,3 +1,4 @@
+import asyncio
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
@@ -10,13 +11,14 @@ from app.api.routes import router
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    await connect_db()
+    await asyncio.wait_for(connect_db(), timeout=5)
     try:
-        await connect_elasticsearch()
+        await asyncio.wait_for(connect_elasticsearch(), timeout=3)
     except Exception:
         pass
     try:
-        connect_bigquery()
+        if settings.environment != "development":
+            connect_bigquery()
     except Exception:
         pass
     yield

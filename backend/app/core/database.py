@@ -1,3 +1,4 @@
+import asyncio
 from motor.motor_asyncio import AsyncIOMotorClient
 from app.config import settings
 
@@ -7,9 +8,12 @@ db = None
 
 async def connect_db():
     global client, db
-    client = AsyncIOMotorClient(settings.mongodb_uri)
+    client = AsyncIOMotorClient(
+        settings.mongodb_uri,
+        serverSelectionTimeoutMS=3000,
+    )
     db = client[settings.mongodb_db_name]
-    await db.command("ping")
+    await asyncio.wait_for(db.command("ping"), timeout=3)
     return db
 
 
