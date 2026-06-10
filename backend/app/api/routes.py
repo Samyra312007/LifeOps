@@ -79,6 +79,29 @@ async def get_me(current_user: dict = Depends(get_current_user)):
     return user
 
 
+@router.put("/auth/me")
+async def update_me(
+    data: dict,
+    current_user: dict = Depends(get_current_user),
+):
+    db = get_db()
+    allowed = {"display_name", "timezone", "wake_time", "bed_time", "preferences"}
+    update = {k: v for k, v in data.items() if k in allowed and v is not None}
+    if not update:
+        raise HTTPException(status_code=400, detail="No valid fields to update")
+    update["updated_at"] = datetime.now(timezone.utc)
+    result = await db["users"].update_one(
+        {"_id": ObjectId(current_user["sub"])},
+        {"$set": update},
+    )
+    if result.modified_count == 0:
+        raise HTTPException(status_code=404, detail="User not found")
+    user = await db["users"].find_one({"_id": ObjectId(current_user["sub"])})
+    user["id"] = str(user.pop("_id"))
+    user.pop("hashed_password", None)
+    return user
+
+
 # ─── Query ──────────────────────────────────────────────────────
 
 @router.post("/query")

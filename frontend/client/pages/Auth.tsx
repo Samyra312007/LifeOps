@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams, Link } from "react-router-dom";
 import { useAuth } from "@/hooks/use-api";
 import * as api from "@/lib/api";
 import { Button } from "@/components/ui/button";
@@ -9,6 +9,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 export default function Auth() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const defaultTab = searchParams.get("tab") === "register" ? "register" : "login";
+  const [tab, setTab] = useState(defaultTab);
   const { loginMutation, profile } = useAuth();
   const [loginEmail, setLoginEmail] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
@@ -18,7 +21,7 @@ export default function Auth() {
   const [error, setError] = useState("");
 
   if (profile.data) {
-    navigate("/", { replace: true });
+    navigate("/dashboard", { replace: true });
     return null;
   }
 
@@ -28,7 +31,7 @@ export default function Auth() {
     loginMutation.mutate(
       { email: loginEmail, password: loginPassword },
       {
-        onSuccess: () => navigate("/", { replace: true }),
+        onSuccess: () => navigate("/dashboard", { replace: true }),
         onError: (err) => setError(err.message),
       },
     );
@@ -40,7 +43,7 @@ export default function Auth() {
     api.register(regEmail, regPassword, regName)
       .then((data) => {
         localStorage.setItem("lifeops_token", data.access_token);
-        navigate("/", { replace: true });
+        navigate("/dashboard", { replace: true });
       })
       .catch((err) => setError(err.message));
   }
@@ -49,19 +52,19 @@ export default function Auth() {
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-teal-50 to-blue-50 p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
-          <div className="flex justify-center mb-2">
+          <Link to="/" className="flex justify-center mb-2">
             <div className="w-12 h-12 rounded-full bg-primary flex items-center justify-center">
               <span className="text-white font-bold text-xl">L</span>
             </div>
-          </div>
-          <CardTitle>LifeOps</CardTitle>
-          <CardDescription>Sign in to your LifeOps account</CardDescription>
+          </Link>
+          <CardTitle>Welcome to LifeOps</CardTitle>
+          <CardDescription>Sign in to your account or create a new one</CardDescription>
         </CardHeader>
         <CardContent>
-          <Tabs defaultValue="login">
+          <Tabs value={tab} onValueChange={setTab}>
             <TabsList className="w-full">
-              <TabsTrigger value="login" className="flex-1">Login</TabsTrigger>
-              <TabsTrigger value="register" className="flex-1">Register</TabsTrigger>
+              <TabsTrigger value="login" className="flex-1">Sign In</TabsTrigger>
+              <TabsTrigger value="register" className="flex-1">Create Account</TabsTrigger>
             </TabsList>
 
             <TabsContent value="login">
@@ -72,6 +75,7 @@ export default function Auth() {
                   value={loginEmail}
                   onChange={(e) => setLoginEmail(e.target.value)}
                   required
+                  autoFocus
                 />
                 <Input
                   type="password"
@@ -94,6 +98,7 @@ export default function Auth() {
                   value={regName}
                   onChange={(e) => setRegName(e.target.value)}
                   required
+                  autoFocus
                 />
                 <Input
                   type="email"
@@ -116,6 +121,10 @@ export default function Auth() {
               </form>
             </TabsContent>
           </Tabs>
+
+          <p className="text-xs text-center text-muted-foreground mt-6">
+            By continuing, you agree to our Terms of Service and Privacy Policy.
+          </p>
         </CardContent>
       </Card>
     </div>

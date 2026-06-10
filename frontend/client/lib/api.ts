@@ -12,7 +12,7 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   if (!res.ok) {
     if (res.status === 401 && token) {
       localStorage.removeItem("lifeops_token");
-      window.location.href = "/auth";
+      window.location.href = "/auth?tab=login";
     }
     throw new Error(`${res.status}: ${await res.text()}`);
   }
@@ -26,6 +26,8 @@ export interface UserProfile {
   email: string;
   display_name: string;
   timezone: string;
+  wake_time?: string;
+  bed_time?: string;
   onboarding_completed: boolean;
   goals: any[];
   preferences: Record<string, any>;
@@ -49,6 +51,13 @@ export async function login(email: string, password: string) {
 
 export async function getMe() {
   return request<UserProfile>("/auth/me");
+}
+
+export async function updateMe(data: Partial<Pick<UserProfile, "display_name" | "timezone">> & { wake_time?: string; bed_time?: string }) {
+  return request<UserProfile>("/auth/me", {
+    method: "PUT",
+    body: JSON.stringify(data),
+  });
 }
 
 // ─── Query ──────────────────────────────────────────────────────
