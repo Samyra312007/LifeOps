@@ -10,9 +10,9 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
 
   const res = await fetch(`${API_BASE}${path}`, { ...options, headers });
   if (!res.ok) {
-    if (res.status === 401) {
+    if (res.status === 401 && token) {
       localStorage.removeItem("lifeops_token");
-      window.location.href = "/login";
+      window.location.href = "/auth";
     }
     throw new Error(`${res.status}: ${await res.text()}`);
   }

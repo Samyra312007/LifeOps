@@ -39,7 +39,7 @@ class Settings(BaseSettings):
     fivetran_api_key: Optional[str] = None
     fivetran_api_secret: Optional[str] = None
 
-    model_config = {"env_file": ".env", "env_file_encoding": "utf-8"}
+    model_config = {"env_file": ".env", "env_file_encoding": "utf-8", "extra": "ignore"}
 
 
 settings = Settings()

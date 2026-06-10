@@ -5,7 +5,7 @@ import { createRoot } from "react-dom/client";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import MorningBrief from "./pages/MorningBrief";
@@ -15,8 +15,15 @@ import Placeholder from "./pages/Placeholder";
 import ConnectSources from "./components/ConnectSources";
 import { LoadingState, EmptyState, ErrorState } from "./pages/SystemStates";
 import DesignSystem from "./pages/DesignSystem";
+import Auth from "./pages/Auth";
 
 const queryClient = new QueryClient();
+
+function ProtectedRoute({ children }: { children: React.ReactNode }) {
+  const token = localStorage.getItem("lifeops_token");
+  if (!token) return <Navigate to="/auth" replace />;
+  return <>{children}</>;
+}
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
@@ -25,21 +32,21 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <Routes>
-          <Route path="/" element={<Index />} />
-          <Route path="/morning-brief" element={<MorningBrief />} />
-          <Route path="/ask-lifeops" element={<AskLifeOps />} />
-          <Route path="/weekly-review" element={<WeeklyReview />} />
-          <Route path="/connect-sources" element={<ConnectSources />} />
-          <Route path="/system/loading" element={<LoadingState />} />
-          <Route path="/system/empty" element={<EmptyState />} />
-          <Route path="/system/error" element={<ErrorState />} />
-          <Route path="/design-system" element={<DesignSystem />} />
-          <Route path="/tasks" element={<Placeholder section="Tasks & Actions" />} />
-          <Route path="/domain/:domain" element={<Placeholder section="Domain View" />} />
-          <Route path="/calendar" element={<Placeholder section="Calendar" />} />
-          <Route path="/intelligence" element={<Placeholder section="Intelligence Hub" />} />
-          {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-          <Route path="*" element={<NotFound />} />
+          <Route path="/auth" element={<Auth />} />
+          <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
+          <Route path="/morning-brief" element={<ProtectedRoute><MorningBrief /></ProtectedRoute>} />
+          <Route path="/ask-lifeops" element={<ProtectedRoute><AskLifeOps /></ProtectedRoute>} />
+          <Route path="/weekly-review" element={<ProtectedRoute><WeeklyReview /></ProtectedRoute>} />
+          <Route path="/connect-sources" element={<ProtectedRoute><ConnectSources /></ProtectedRoute>} />
+          <Route path="/system/loading" element={<ProtectedRoute><LoadingState /></ProtectedRoute>} />
+          <Route path="/system/empty" element={<ProtectedRoute><EmptyState /></ProtectedRoute>} />
+          <Route path="/system/error" element={<ProtectedRoute><ErrorState /></ProtectedRoute>} />
+          <Route path="/design-system" element={<ProtectedRoute><DesignSystem /></ProtectedRoute>} />
+          <Route path="/tasks" element={<ProtectedRoute><Placeholder section="Tasks & Actions" /></ProtectedRoute>} />
+          <Route path="/domain/:domain" element={<ProtectedRoute><Placeholder section="Domain View" /></ProtectedRoute>} />
+          <Route path="/calendar" element={<ProtectedRoute><Placeholder section="Calendar" /></ProtectedRoute>} />
+          <Route path="/intelligence" element={<ProtectedRoute><Placeholder section="Intelligence Hub" /></ProtectedRoute>} />
+          <Route path="*" element={<ProtectedRoute><NotFound /></ProtectedRoute>} />
         </Routes>
       </BrowserRouter>
     </TooltipProvider>

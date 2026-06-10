@@ -24,7 +24,7 @@ export function useAuth() {
   const logout = () => {
     localStorage.removeItem("lifeops_token");
     queryClient.clear();
-    window.location.href = "/";
+    window.location.href = "/auth";
   };
 
   return { profile, token, loginMutation, logout, isAuthenticated: !!token };
