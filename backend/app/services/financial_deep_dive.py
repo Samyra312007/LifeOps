@@ -62,7 +62,7 @@ class FinancialDeepDive:
 
         subs = {}
         for t in transactions:
-            name = t.get("merchant_name", "Unknown")
+            name = t.get("merchant_name") or t.get("merchant", "Unknown")
             amount = abs(t.get("amount", 0))
             if name not in subs:
                 subs[name] = {"merchant": name, "monthly_cost": 0, "last_charge": t.get("date"), "charges": 0}

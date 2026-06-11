@@ -24,6 +24,7 @@ class Settings(BaseSettings):
     # Gemini
     gemini_api_key: Optional[str] = None
     gemini_model: str = "gemini-2.5-pro"
+    gemini_embedding_model: str = "models/text-embedding-004"
 
     # Arize Phoenix
     phoenix_api_key: Optional[str] = None
@@ -34,6 +35,34 @@ class Settings(BaseSettings):
     jwt_secret_key: str = "change-me-in-production"
     jwt_algorithm: str = "HS256"
     jwt_expiration_hours: int = 24
+
+    # Google OAuth
+    google_client_id: str = ""
+    google_client_secret: str = ""
+    google_redirect_uri: str = "http://localhost:8080/api/v1/auth/oauth/google/callback"
+
+    # Plaid
+    plaid_client_id: str = ""
+    plaid_secret: str = ""
+    plaid_env: str = "sandbox"
+
+    # Google Fit
+    google_fit_redirect_uri: str = "http://localhost:8080/api/v1/auth/oauth/googlefit/callback"
+
+    # Fitbit
+    fitbit_client_id: str = ""
+    fitbit_client_secret: str = ""
+    fitbit_redirect_uri: str = "http://localhost:8080/api/v1/auth/oauth/fitbit/callback"
+
+    # Todoist
+    todoist_client_id: str = ""
+    todoist_client_secret: str = ""
+    todoist_redirect_uri: str = "http://localhost:8080/api/v1/auth/oauth/todoist/callback"
+
+    # GitHub
+    github_client_id: str = ""
+    github_client_secret: str = ""
+    github_redirect_uri: str = "http://localhost:8080/api/v1/auth/oauth/github/callback"
 
     # Fivetran
     fivetran_api_key: Optional[str] = None

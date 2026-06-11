@@ -50,6 +50,8 @@ class SocialCommitmentTracker:
             freq = rel.get("contact_frequency_days")
             status = "healthy"
             if last_contact:
+                if isinstance(last_contact, str):
+                    last_contact = datetime.fromisoformat(last_contact.replace("Z", "+00:00"))
                 delta_days = (today - last_contact).days
                 if freq and delta_days > freq * 2:
                     status = "needs_attention"

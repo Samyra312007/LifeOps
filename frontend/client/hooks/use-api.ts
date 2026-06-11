@@ -17,7 +17,7 @@ export function useAuth() {
     mutationFn: ({ email, password }: { email: string; password: string }) => api.login(email, password),
     onSuccess: (data) => {
       localStorage.setItem("lifeops_token", data.access_token);
-      queryClient.invalidateQueries({ queryKey: ["user"] });
+      queryClient.invalidateQueries({ queryKey: ["user", "me"] });
     },
   });
 

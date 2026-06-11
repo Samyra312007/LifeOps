@@ -1,12 +1,15 @@
 import Layout from "@/components/Layout";
 import { Link } from "react-router-dom";
-import { useMorningBrief, useAlerts } from "@/hooks/use-api";
-import { AlertCircle, ChevronRight, Eye, Sparkles } from "lucide-react";
+import { useMorningBrief, useAlerts, useAuth } from "@/hooks/use-api";
+import { AlertCircle, ChevronRight, Eye, Sparkles, Zap, ArrowUpRight, Search, Brain, BarChart3, Sun } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 export default function Index() {
   const { data: brief, isLoading: briefLoading } = useMorningBrief();
   const { data: alerts } = useAlerts(true);
+  const { profile } = useAuth();
 
+  const user = profile.data;
   const alert = alerts?.alerts?.[0];
   const overview = brief?.sections?.find((s) => s.id === "overview");
   const focus = brief?.sections?.find((s) => s.id === "focus");
@@ -14,13 +17,15 @@ export default function Index() {
   if (briefLoading) {
     return (
       <Layout>
-        <div className="p-8 animate-pulse space-y-6">
-          <div className="h-8 w-64 bg-muted rounded" />
-          <div className="h-4 w-48 bg-muted rounded" />
-          <div className="h-24 bg-muted rounded-lg" />
-          <div className="grid grid-cols-6 gap-3">
-            {Array.from({ length: 6 }).map((_, i) => (
-              <div key={i} className="h-32 bg-muted rounded-lg" />
+        <div className="py-12 animate-pulse space-y-12">
+          <div className="space-y-4">
+            <div className="h-12 w-96 bg-muted rounded-2xl" />
+            <div className="h-6 w-48 bg-muted rounded-xl" />
+          </div>
+          <div className="h-48 bg-muted rounded-[2rem]" />
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <div key={i} className="h-64 bg-muted rounded-[2rem]" />
             ))}
           </div>
         </div>
@@ -30,73 +35,101 @@ export default function Index() {
 
   return (
     <Layout>
-      <div className="p-8">
-        <div className="flex items-start justify-between mb-8">
+      <div className="py-12">
+        {/* Header Section */}
+        <header className="flex flex-col md:flex-row items-start md:items-end justify-between mb-16 gap-6">
           <div>
-            <h1 className="text-3xl font-bold text-foreground">
-              {focus?.content || "Good morning."}
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-success/10 text-success text-[10px] font-bold uppercase tracking-widest mb-4">
+               <div className="w-1.5 h-1.5 rounded-full bg-success animate-pulse" />
+               Systems Synced
+            </div>
+            <h1 className="text-5xl md:text-6xl font-editorial font-bold tracking-tight mb-2">
+              {focus?.content ? focus.content : `Good morning, ${user?.display_name?.split(" ")[0] || "User"}.`}
             </h1>
-            <p className="text-muted-foreground mt-1">
+            <p className="text-xl text-muted-foreground font-medium">
               {brief?.date ? new Date(brief.date).toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" }) : ""}
             </p>
           </div>
-          <div className="flex items-center gap-3">
-            <button className="text-muted-foreground hover:text-foreground transition-colors text-sm">
-              All systems synced
-            </button>
-            <div className="w-2 h-2 rounded-full bg-success" />
+          <div className="flex items-center gap-4">
+             <Button variant="outline" className="rounded-2xl h-12 gap-2 border-2 px-6 font-bold">
+                <Search size={18} />
+                Global Search
+             </Button>
+             <Link to="/ask-lifeops">
+               <Button className="rounded-2xl h-12 gap-2 px-6 font-bold shadow-lg shadow-primary/20 group">
+                  <Zap size={18} className="group-hover:fill-white transition-all" />
+                  Ask LifeOps
+               </Button>
+             </Link>
           </div>
-        </div>
+        </header>
 
+        {/* Actionable Alert */}
         {alert && (
-          <div className="bg-yellow-50 border-l-4 border-warning rounded-lg p-4 mb-8 flex items-start justify-between">
-            <div className="flex items-start gap-3">
-              <AlertCircle className="w-5 h-5 text-warning flex-shrink-0 mt-0.5" />
-              <div>
-                <h3 className="font-semibold text-foreground">{alert.title}</h3>
-                <p className="text-sm text-foreground mt-1">{alert.body}</p>
+          <div className="relative overflow-hidden group mb-12">
+            <div className="absolute inset-0 bg-warning/5 group-hover:bg-warning/10 transition-colors duration-500 rounded-[2.5rem]" />
+            <div className="relative p-8 md:p-10 flex flex-col md:flex-row items-center justify-between gap-8 border border-warning/20 rounded-[2.5rem]">
+              <div className="flex items-start gap-6">
+                <div className="w-16 h-16 rounded-3xl bg-warning/20 flex items-center justify-center text-warning flex-shrink-0">
+                  <AlertCircle size={32} />
+                </div>
+                <div>
+                  <h3 className="text-2xl font-bold mb-2">{alert.title}</h3>
+                  <p className="text-lg text-muted-foreground font-medium max-w-2xl">{alert.body}</p>
+                </div>
               </div>
+              <Button className="bg-warning hover:bg-warning/90 text-white rounded-2xl h-14 px-8 text-lg font-bold gap-3 shadow-xl shadow-warning/20 whitespace-nowrap">
+                <Sparkles size={20} />
+                Execute Mitigation
+              </Button>
             </div>
-            <button className="bg-warning text-white px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap hover:bg-opacity-90 transition-colors flex items-center gap-2">
-              <Sparkles size={16} /> Act
-            </button>
           </div>
         )}
 
+        {/* Intelligence Overview */}
         {overview && (
-          <div className="mb-8 p-4 bg-card border border-border rounded-lg">
-            <p className="text-sm text-muted-foreground">{overview.content}</p>
+          <div className="editorial-card intelligence-gradient mb-12 relative overflow-hidden group">
+            <div className="absolute top-0 right-0 p-8 opacity-20 group-hover:scale-110 transition-transform duration-700">
+               <Brain size={120} />
+            </div>
+            <h4 className="text-[10px] font-bold text-primary uppercase tracking-[0.2em] mb-6">Synthesis Overview</h4>
+            <p className="text-2xl md:text-3xl font-editorial font-medium leading-tight max-w-4xl">{overview.content}</p>
           </div>
         )}
 
-        <div className="grid grid-cols-3 gap-6">
-          <Link to="/ask-lifeops" className="bg-blue-50 rounded-lg p-6 border border-blue-100 hover:shadow-md transition-shadow">
-            <h3 className="text-sm font-semibold text-blue-900 mb-3">Ask LifeOps</h3>
-            <p className="text-sm text-blue-700 mb-4">Get a cross-domain answer based on your connected data</p>
-            <div className="flex items-center gap-2 bg-white rounded-full px-3 py-2">
-              <input readOnly type="text" placeholder="What should I focus on?" className="flex-1 bg-transparent text-sm outline-none" />
-              <button className="bg-primary text-white p-2 rounded-full">
-                <Eye size={16} />
-              </button>
+        {/* Quick Access Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+          <Link to="/morning-brief" className="editorial-card group hover:bg-primary/5 transition-all duration-500">
+            <div className="flex items-center justify-between mb-8">
+               <div className="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-white transition-all duration-500">
+                  <Sun size={28} />
+               </div>
+               <ArrowUpRight size={24} className="text-muted-foreground group-hover:text-primary transition-transform group-hover:translate-x-1 group-hover:-translate-y-1" />
             </div>
+            <h3 className="text-2xl font-bold mb-3">Daily Brief</h3>
+            <p className="text-muted-foreground font-medium">Your synthesized agenda, health metrics, and financial status.</p>
           </Link>
 
-          <Link to="/morning-brief" className="bg-white rounded-lg p-6 border border-border hover:shadow-md transition-shadow">
-            <h3 className="text-sm font-semibold text-foreground mb-3">Morning Brief</h3>
-            <p className="text-xs text-muted-foreground mb-4">Your daily overview and recommended actions</p>
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-muted-foreground">View brief</span>
-              <ChevronRight size={16} className="text-primary" />
+          <Link to="/intelligence" className="editorial-card group hover:bg-primary/5 transition-all duration-500">
+            <div className="flex items-center justify-between mb-8">
+               <div className="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-white transition-all duration-500">
+                  <Brain size={28} />
+               </div>
+               <ArrowUpRight size={24} className="text-muted-foreground group-hover:text-primary transition-transform group-hover:translate-x-1 group-hover:-translate-y-1" />
             </div>
+            <h3 className="text-2xl font-bold mb-3">Intelligence Hub</h3>
+            <p className="text-muted-foreground font-medium">Deep-dive into cross-domain patterns and predictive trends.</p>
           </Link>
 
-          <Link to="/weekly-review" className="bg-white rounded-lg p-6 border border-border hover:shadow-md transition-shadow">
-            <h3 className="text-sm font-semibold text-foreground mb-3">Weekly Review</h3>
-            <p className="text-xs text-muted-foreground mb-4">Patterns, trends, and forecast for the week ahead</p>
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-muted-foreground">Open review</span>
-              <ChevronRight size={16} className="text-primary" />
+          <Link to="/weekly-review" className="editorial-card group hover:bg-primary/5 transition-all duration-500">
+            <div className="flex items-center justify-between mb-8">
+               <div className="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-white transition-all duration-500">
+                  <BarChart3 size={28} />
+               </div>
+               <ArrowUpRight size={24} className="text-muted-foreground group-hover:text-primary transition-transform group-hover:translate-x-1 group-hover:-translate-y-1" />
             </div>
+            <h3 className="text-2xl font-bold mb-3">Weekly Review</h3>
+            <p className="text-muted-foreground font-medium">Quantified progress report across all life domains.</p>
           </Link>
         </div>
       </div>

@@ -12,12 +12,18 @@ import NotFound from "./pages/NotFound";
 import MorningBrief from "./pages/MorningBrief";
 import AskLifeOps from "./pages/AskLifeOps";
 import WeeklyReview from "./pages/WeeklyReview";
-import Placeholder from "./pages/Placeholder";
 import ConnectSources from "./components/ConnectSources";
 import { LoadingState, EmptyState, ErrorState } from "./pages/SystemStates";
 import DesignSystem from "./pages/DesignSystem";
 import Auth from "./pages/Auth";
 import Profile from "./pages/Profile";
+import DomainCalendar from "./pages/DomainCalendar";
+import DomainHealth from "./pages/DomainHealth";
+import DomainFinance from "./pages/DomainFinance";
+import DomainSocial from "./pages/DomainSocial";
+import DomainProductivity from "./pages/DomainProductivity";
+import IntelligenceHub from "./pages/IntelligenceHub";
+import TasksActions from "./pages/TasksActions";
 
 const queryClient = new QueryClient();
 
@@ -27,34 +33,41 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+import { ThemeProvider } from "./hooks/use-theme";
+
 const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Landing />} />
-          <Route path="/auth" element={<Auth />} />
-          <Route path="/dashboard" element={<ProtectedRoute><Index /></ProtectedRoute>} />
-          <Route path="/morning-brief" element={<ProtectedRoute><MorningBrief /></ProtectedRoute>} />
-          <Route path="/ask-lifeops" element={<ProtectedRoute><AskLifeOps /></ProtectedRoute>} />
-          <Route path="/weekly-review" element={<ProtectedRoute><WeeklyReview /></ProtectedRoute>} />
-          <Route path="/connect-sources" element={<ProtectedRoute><ConnectSources /></ProtectedRoute>} />
-          <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
-          <Route path="/system/loading" element={<ProtectedRoute><LoadingState /></ProtectedRoute>} />
-          <Route path="/system/empty" element={<ProtectedRoute><EmptyState /></ProtectedRoute>} />
-          <Route path="/system/error" element={<ProtectedRoute><ErrorState /></ProtectedRoute>} />
-          <Route path="/design-system" element={<ProtectedRoute><DesignSystem /></ProtectedRoute>} />
-          <Route path="/tasks" element={<ProtectedRoute><Placeholder section="Tasks & Actions" /></ProtectedRoute>} />
-          <Route path="/domain/:domain" element={<ProtectedRoute><Placeholder section="Domain View" /></ProtectedRoute>} />
-          <Route path="/calendar" element={<ProtectedRoute><Placeholder section="Calendar" /></ProtectedRoute>} />
-          <Route path="/intelligence" element={<ProtectedRoute><Placeholder section="Intelligence Hub" /></ProtectedRoute>} />
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-      </BrowserRouter>
-    </TooltipProvider>
-  </QueryClientProvider>
+  <ThemeProvider defaultTheme="system" storageKey="lifeops-ui-theme">
+    <QueryClientProvider client={queryClient}>
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        <BrowserRouter>
+          <Routes>
+            <Route path="/" element={<Landing />} />
+            <Route path="/auth" element={<Auth />} />
+            <Route path="/dashboard" element={<ProtectedRoute><Index /></ProtectedRoute>} />
+            <Route path="/morning-brief" element={<ProtectedRoute><MorningBrief /></ProtectedRoute>} />
+            <Route path="/ask-lifeops" element={<ProtectedRoute><AskLifeOps /></ProtectedRoute>} />
+            <Route path="/weekly-review" element={<ProtectedRoute><WeeklyReview /></ProtectedRoute>} />
+            <Route path="/connect-sources" element={<ProtectedRoute><ConnectSources /></ProtectedRoute>} />
+            <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
+            <Route path="/tasks" element={<ProtectedRoute><TasksActions /></ProtectedRoute>} />
+            <Route path="/intelligence" element={<ProtectedRoute><IntelligenceHub /></ProtectedRoute>} />
+            <Route path="/domain/calendar" element={<ProtectedRoute><DomainCalendar /></ProtectedRoute>} />
+            <Route path="/domain/health" element={<ProtectedRoute><DomainHealth /></ProtectedRoute>} />
+            <Route path="/domain/finance" element={<ProtectedRoute><DomainFinance /></ProtectedRoute>} />
+            <Route path="/domain/social" element={<ProtectedRoute><DomainSocial /></ProtectedRoute>} />
+            <Route path="/domain/productivity" element={<ProtectedRoute><DomainProductivity /></ProtectedRoute>} />
+            <Route path="/system/loading" element={<ProtectedRoute><LoadingState /></ProtectedRoute>} />
+            <Route path="/system/empty" element={<ProtectedRoute><EmptyState /></ProtectedRoute>} />
+            <Route path="/system/error" element={<ProtectedRoute><ErrorState /></ProtectedRoute>} />
+            <Route path="/design-system" element={<ProtectedRoute><DesignSystem /></ProtectedRoute>} />
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </BrowserRouter>
+      </TooltipProvider>
+    </QueryClientProvider>
+  </ThemeProvider>
 );
 
 createRoot(document.getElementById("root")!).render(<App />);

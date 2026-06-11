@@ -34,10 +34,10 @@ class OrchestratorAgent:
 
         memory = {
             "memory_type": "decision",
-            "domain": plan.get("domains", ["general"])[0],
+            "domain": (plan.get("domains") or ["general"])[0],
             "content": {"query": query, "recommendation": recommendation},
             "importance_score": 0.6,
-            "tags": plan.get("domains", []),
+            "tags": plan.get("domains") or [],
         }
         from app.models.memory import MemoryCreate
         await self.memory_service.create_memory(user_id, MemoryCreate(**memory))

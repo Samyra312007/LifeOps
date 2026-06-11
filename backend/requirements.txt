@@ -6,11 +6,12 @@ motor
 elasticsearch
 google-cloud-bigquery
 google-cloud-aiplatform
-google-generativeai
+google-genai
 arize-phoenix-otel
 openinference-instrumentation-llama-index
 python-jose[cryptography]
 passlib[bcrypt]
+python-dateutil
 python-multipart
 httpx
 pytest

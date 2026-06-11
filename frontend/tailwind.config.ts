@@ -7,6 +7,7 @@ export default {
   theme: {
     fontFamily: {
       inter: ["Inter", "sans-serif"],
+      editorial: ["Playfair Display", "serif"],
     },
     container: {
       center: true,

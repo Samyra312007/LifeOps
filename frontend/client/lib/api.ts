@@ -43,10 +43,10 @@ export async function register(email: string, password: string, display_name: st
 }
 
 export async function login(email: string, password: string) {
-  return request<{ access_token: string; token_type: string; user_id: string }>(
-    `/auth/login?email=${encodeURIComponent(email)}&password=${encodeURIComponent(password)}`,
-    { method: "POST" },
-  );
+  return request<{ access_token: string; token_type: string; user_id: string }>("/auth/login", {
+    method: "POST",
+    body: JSON.stringify({ email, password }),
+  });
 }
 
 export async function getMe() {

@@ -1,4 +1,6 @@
+import secrets
 from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi.responses import RedirectResponse
 from app.core.auth import get_current_user, hash_password, verify_password, create_access_token
 from app.core.database import get_db
 from app.models.user import UserCreate, UserResponse
@@ -16,6 +18,12 @@ from app.services.dinner_party_planner import DinnerPartyPlanner
 from app.services.financial_deep_dive import FinancialDeepDive
 from app.services.social_tracker import SocialCommitmentTracker
 from app.services.gdpr_service import GDPRService
+from app.services.google_service import GoogleOAuthService
+from app.services.google_fit_service import GoogleFitService
+from app.services.plaid_service import PlaidService
+from app.services.fitbit_service import FitbitService
+from app.services.todoist_service import TodoistService
+from app.services.github_service import GitHubService
 from bson import ObjectId
 from datetime import datetime, timezone
 
@@ -29,6 +37,14 @@ fivetran_service = FivetranService()
 scheduling_service = SchedulingService()
 pattern_detector = PatternDetector()
 hallucination_guard = HallucinationGuard()
+FRONTEND_URL = "http://localhost:5173"
+
+google_oauth = GoogleOAuthService()
+google_fit = GoogleFitService()
+plaid_service = PlaidService()
+fitbit_oauth = FitbitService()
+todoist_oauth = TodoistService()
+github_oauth = GitHubService()
 
 
 # ─── Auth ───────────────────────────────────────────────────────
@@ -59,8 +75,10 @@ async def register(data: UserCreate):
 
 
 @router.post("/auth/login")
-async def login(email: str, password: str):
+async def login(data: dict):
     db = get_db()
+    email = data.get("email", "")
+    password = data.get("password", "")
     user = await db["users"].find_one({"email": email})
     if not user or not verify_password(password, user["hashed_password"]):
         raise HTTPException(status_code=401, detail="Invalid credentials")
@@ -100,6 +118,166 @@ async def update_me(
     user["id"] = str(user.pop("_id"))
     user.pop("hashed_password", None)
     return user
+
+
+# ─── Google OAuth ────────────────────────────────────────────────
+
+@router.get("/auth/oauth/google")
+async def google_oauth_authorize(current_user: dict = Depends(get_current_user)):
+    state = secrets.token_urlsafe(32)
+    await connector_service.store_oauth_state(current_user["sub"], "google", state)
+    auth_url = google_oauth.get_auth_url(state)
+    return {"authorization_url": auth_url}
+
+
+@router.get("/auth/oauth/google/callback")
+async def google_oauth_callback(code: str, state: str, error: str = None):
+    if error:
+        return RedirectResponse(f"{FRONTEND_URL}/connect-sources?status=error&message=oauth_denied")
+    state_data = await connector_service.validate_oauth_state(state)
+    if not state_data:
+        return RedirectResponse(f"{FRONTEND_URL}/connect-sources?status=error&message=expired_state")
+    tokens = await google_oauth.exchange_code(code)
+    user_email = await google_oauth.get_user_email(tokens["access_token"])
+    token_payload = {
+        "access_token": tokens["access_token"],
+        "refresh_token": tokens.get("refresh_token", ""),
+        "expires_at": datetime.now(timezone.utc).timestamp() + tokens.get("expires_in", 3600),
+        "scope": tokens.get("scope", ""),
+        "email": user_email,
+    }
+    await connector_service.register_connector(state_data["user_id"], "calendar", token_payload)
+    await connector_service.register_connector(state_data["user_id"], "gmail", token_payload)
+    return RedirectResponse(f"{FRONTEND_URL}/connect-sources?status=success&source=calendar+gmail")
+
+
+# ─── Plaid OAuth ──────────────────────────────────────────────────
+
+@router.post("/auth/plaid/link-token")
+async def plaid_create_link_token(current_user: dict = Depends(get_current_user)):
+    result = await plaid_service.create_link_token(current_user["sub"])
+    return {"link_token": result.get("link_token")}
+
+
+@router.post("/auth/plaid/exchange")
+async def plaid_exchange_public_token(public_token: str = Query(...), current_user: dict = Depends(get_current_user)):
+    tokens = await plaid_service.exchange_public_token(public_token)
+    token_payload = {
+        "access_token": tokens.get("access_token"),
+        "item_id": tokens.get("item_id"),
+    }
+    await connector_service.register_connector(current_user["sub"], "plaid", token_payload)
+    return {"status": "success"}
+
+
+# ─── Fitbit OAuth ─────────────────────────────────────────────────
+
+@router.get("/auth/oauth/fitbit")
+async def fitbit_oauth_authorize(current_user: dict = Depends(get_current_user)):
+    state = secrets.token_urlsafe(32)
+    await connector_service.store_oauth_state(current_user["sub"], "fitbit", state)
+    auth_url = fitbit_oauth.get_auth_url(state)
+    return {"authorization_url": auth_url}
+
+
+@router.get("/auth/oauth/fitbit/callback")
+async def fitbit_oauth_callback(code: str, state: str, error: str = None):
+    if error:
+        return RedirectResponse(f"{FRONTEND_URL}/connect-sources?status=error&message=oauth_denied")
+    state_data = await connector_service.validate_oauth_state(state)
+    if not state_data:
+        return RedirectResponse(f"{FRONTEND_URL}/connect-sources?status=error&message=expired_state")
+    tokens = await fitbit_oauth.exchange_code(code)
+    token_payload = {
+        "access_token": tokens.get("access_token"),
+        "refresh_token": tokens.get("refresh_token", ""),
+        "expires_at": datetime.now(timezone.utc).timestamp() + tokens.get("expires_in", 28800),
+        "scope": tokens.get("scope", ""),
+    }
+    await connector_service.register_connector(state_data["user_id"], "fit", token_payload)
+    return RedirectResponse(f"{FRONTEND_URL}/connect-sources?status=success&source=fit")
+
+
+# ─── Google Fit OAuth ──────────────────────────────────────────────
+
+@router.get("/auth/oauth/googlefit")
+async def google_fit_authorize(current_user: dict = Depends(get_current_user)):
+    state = secrets.token_urlsafe(32)
+    await connector_service.store_oauth_state(current_user["sub"], "googlefit", state)
+    auth_url = google_fit.get_auth_url(state)
+    return {"authorization_url": auth_url}
+
+
+@router.get("/auth/oauth/googlefit/callback")
+async def google_fit_callback(code: str, state: str, error: str = None):
+    if error:
+        return RedirectResponse(f"{FRONTEND_URL}/connect-sources?status=error&message=oauth_denied")
+    state_data = await connector_service.validate_oauth_state(state)
+    if not state_data:
+        return RedirectResponse(f"{FRONTEND_URL}/connect-sources?status=error&message=expired_state")
+    tokens = await google_fit.exchange_code(code)
+    user_email = await google_fit.get_user_email(tokens["access_token"])
+    token_payload = {
+        "access_token": tokens["access_token"],
+        "refresh_token": tokens.get("refresh_token", ""),
+        "expires_at": datetime.now(timezone.utc).timestamp() + tokens.get("expires_in", 3600),
+        "scope": tokens.get("scope", ""),
+        "email": user_email,
+    }
+    await connector_service.register_connector(state_data["user_id"], "fit", token_payload)
+    return RedirectResponse(f"{FRONTEND_URL}/connect-sources?status=success&source=googlefit")
+
+
+# ─── Todoist OAuth ────────────────────────────────────────────────
+
+@router.get("/auth/oauth/todoist")
+async def todoist_oauth_authorize(current_user: dict = Depends(get_current_user)):
+    state = secrets.token_urlsafe(32)
+    await connector_service.store_oauth_state(current_user["sub"], "todoist", state)
+    auth_url = todoist_oauth.get_auth_url(state)
+    return {"authorization_url": auth_url}
+
+
+@router.get("/auth/oauth/todoist/callback")
+async def todoist_oauth_callback(code: str, state: str, error: str = None):
+    if error:
+        return RedirectResponse(f"{FRONTEND_URL}/connect-sources?status=error&message=oauth_denied")
+    state_data = await connector_service.validate_oauth_state(state)
+    if not state_data:
+        return RedirectResponse(f"{FRONTEND_URL}/connect-sources?status=error&message=expired_state")
+    tokens = await todoist_oauth.exchange_code(code)
+    token_payload = {
+        "access_token": tokens.get("access_token"),
+        "scope": tokens.get("scope", ""),
+    }
+    await connector_service.register_connector(state_data["user_id"], "todoist", token_payload)
+    return RedirectResponse(f"{FRONTEND_URL}/connect-sources?status=success&source=todoist")
+
+
+# ─── GitHub OAuth ─────────────────────────────────────────────────
+
+@router.get("/auth/oauth/github")
+async def github_oauth_authorize(current_user: dict = Depends(get_current_user)):
+    state = secrets.token_urlsafe(32)
+    await connector_service.store_oauth_state(current_user["sub"], "github", state)
+    auth_url = github_oauth.get_auth_url(state)
+    return {"authorization_url": auth_url}
+
+
+@router.get("/auth/oauth/github/callback")
+async def github_oauth_callback(code: str, state: str, error: str = None):
+    if error:
+        return RedirectResponse(f"{FRONTEND_URL}/connect-sources?status=error&message=oauth_denied")
+    state_data = await connector_service.validate_oauth_state(state)
+    if not state_data:
+        return RedirectResponse(f"{FRONTEND_URL}/connect-sources?status=error&message=expired_state")
+    tokens = await github_oauth.exchange_code(code)
+    token_payload = {
+        "access_token": tokens.get("access_token"),
+        "scope": tokens.get("scope", ""),
+    }
+    await connector_service.register_connector(state_data["user_id"], "github", token_payload)
+    return RedirectResponse(f"{FRONTEND_URL}/connect-sources?status=success&source=github")
 
 
 # ─── Query ──────────────────────────────────────────────────────
@@ -219,13 +397,15 @@ async def action_feedback(
     quality_score: float = None,
     current_user: dict = Depends(get_current_user),
 ):
+    from app.models.decision import UserAction
     from app.services.action_service import ActionService
     svc = ActionService()
-    await svc.log_user_action(decision_id, {
-        "selected_option_id": None,
-        "confirmed_at": datetime.now(timezone.utc),
-        "was_followed_through": was_followed_through,
-    })
+    action = UserAction(
+        selected_option_id=None,
+        confirmed_at=datetime.now(timezone.utc),
+        was_followed_through=was_followed_through,
+    )
+    await svc.log_user_action(decision_id, action)
     if quality_score is not None:
         db = get_db()
         await db["user_decisions"].update_one(
@@ -300,9 +480,295 @@ async def sync_connector(connector_id: str, current_user: dict = Depends(get_cur
     connector = await connector_service.get_connector(connector_id)
     if not connector:
         raise HTTPException(status_code=404, detail="Connector not found")
-    # Stub: in production this would trigger a Fivetran sync or direct API pull
+    source = connector.get("source", "")
+    oauth = connector.get("oauth_tokens", {})
+    db = get_db()
+    records_synced = 0
+
+    access_token = oauth.get("access_token", "")
+    has_real_token = bool(access_token) and access_token != "None"
+
+    if has_real_token and source == "calendar":
+        try:
+            token = await google_oauth.ensure_valid_token(oauth)
+            events = await google_oauth.fetch_calendar_events(token)
+            for ev in events:
+                start = ev.get("start", {})
+                end = ev.get("end", {})
+                await db["fivetran_calendar.events"].update_one(
+                    {"user_id": current_user["sub"], "google_id": ev["id"]},
+                    {"$set": {
+                        "user_id": current_user["sub"],
+                        "google_id": ev["id"],
+                        "title": ev.get("summary", ""),
+                        "start_time": start.get("dateTime", start.get("date")),
+                        "end_time": end.get("dateTime", end.get("date")),
+                        "source": "calendar",
+                        "created_at": datetime.now(timezone.utc),
+                    }},
+                    upsert=True,
+                )
+                records_synced += 1
+        except Exception:
+            records_synced = 0
+
+    elif has_real_token and source == "gmail":
+        try:
+            token = await google_oauth.ensure_valid_token(oauth)
+            emails = await google_oauth.fetch_gmail_messages(token)
+            for msg in emails:
+                headers = {h["name"]: h["value"] for h in msg.get("payload", {}).get("headers", [])}
+                await db["fivetran_gmail.messages"].update_one(
+                    {"user_id": current_user["sub"], "google_id": msg["id"]},
+                    {"$set": {
+                        "user_id": current_user["sub"],
+                        "google_id": msg["id"],
+                        "subject": headers.get("Subject", "(no subject)"),
+                        "from": headers.get("From", ""),
+                        "received_at": headers.get("Date", ""),
+                        "source": "gmail",
+                        "created_at": datetime.now(timezone.utc),
+                    }},
+                    upsert=True,
+                )
+                records_synced += 1
+        except Exception:
+            records_synced = 0
+
+    elif has_real_token and source == "plaid":
+        try:
+            txns = await plaid_service.fetch_transactions(access_token)
+            for tx in txns:
+                await db["fivetran_plaid.transactions"].update_one(
+                    {"user_id": current_user["sub"], "transaction_id": tx.get("transaction_id")},
+                    {"$set": {
+                        "user_id": current_user["sub"],
+                        "transaction_id": tx.get("transaction_id"),
+                        "date": tx.get("date"),
+                        "amount": tx.get("amount"),
+                        "merchant": tx.get("merchant_name", tx.get("name")),
+                        "category": (tx.get("category") or [None])[0],
+                        "source": "plaid",
+                        "created_at": datetime.now(timezone.utc),
+                    }},
+                    upsert=True,
+                )
+                records_synced += 1
+        except Exception:
+            records_synced = 0
+
+    elif has_real_token and source == "fit":
+        try:
+            activity = await fitbit_oauth.fetch_activity(access_token)
+            for day in activity:
+                summary = day.get("summary", {})
+                await db["fivetran_fit.daily_summary"].update_one(
+                    {"user_id": current_user["sub"], "date": day.get("date")},
+                    {"$set": {
+                        "user_id": current_user["sub"],
+                        "date": day.get("date"),
+                        "steps": summary.get("steps", 0),
+                        "sleep_hours": summary.get("sleep", {}).get("totalMinutesAsleep", 0) / 60.0 if summary.get("sleep") else 0,
+                        "resting_heart_rate": summary.get("restingHeartRate", 0),
+                        "source": "fit",
+                        "created_at": datetime.now(timezone.utc),
+                    }},
+                    upsert=True,
+                )
+                records_synced += 1
+        except Exception:
+            records_synced = 0
+
+    elif has_real_token and source == "todoist":
+        try:
+            tasks = await todoist_oauth.fetch_tasks(access_token)
+            for task in tasks:
+                await db["fivetran_todoist.tasks"].update_one(
+                    {"user_id": current_user["sub"], "todoist_id": task["id"]},
+                    {"$set": {
+                        "user_id": current_user["sub"],
+                        "todoist_id": task["id"],
+                        "content": task.get("content"),
+                        "due": task.get("due", {}).get("date") if task.get("due") else None,
+                        "priority": task.get("priority", 1),
+                        "source": "todoist",
+                        "created_at": datetime.now(timezone.utc),
+                    }},
+                    upsert=True,
+                )
+                records_synced += 1
+        except Exception:
+            records_synced = 0
+
+    elif has_real_token and source == "github":
+        try:
+            events = await github_oauth.fetch_events(access_token)
+            for ev in events:
+                await db["fivetran_github.events"].update_one(
+                    {"user_id": current_user["sub"], "github_id": ev["id"]},
+                    {"$set": {
+                        "user_id": current_user["sub"],
+                        "github_id": ev["id"],
+                        "repo": ev.get("repo", {}).get("name"),
+                        "event_type": ev.get("type"),
+                        "source": "github",
+                        "created_at": datetime.now(timezone.utc),
+                    }},
+                    upsert=True,
+                )
+                records_synced += 1
+        except Exception:
+            records_synced = 0
+
+    else:
+        records_synced = await _seed_mock_data(current_user["sub"], source)
+
     await connector_service.update_sync_status(connector_id, "completed")
-    return {"status": "completed", "connector_id": connector_id, "records_synced": 0}
+    return {"status": "completed", "connector_id": connector_id, "records_synced": records_synced}
+
+
+async def _seed_mock_data(user_id: str, source: str) -> int:
+    """Seed sample data when a connector is registered without real OAuth tokens."""
+    from datetime import datetime, timezone, timedelta
+    import random
+    db = get_db()
+    count = 0
+    now = datetime.now(timezone.utc)
+
+    if source == "calendar":
+        events_data = [
+            {"user_id": user_id, "title": "Morning Standup", "start_time": now.replace(hour=9, minute=0), "end_time": now.replace(hour=9, minute=30), "source": "calendar"},
+            {"user_id": user_id, "title": "Lunch with Team", "start_time": now.replace(hour=12, minute=0), "end_time": now.replace(hour=13, minute=0), "source": "calendar"},
+            {"user_id": user_id, "title": "Gym Session", "start_time": now.replace(hour=17, minute=0), "end_time": now.replace(hour=18, minute=0), "source": "calendar"},
+        ]
+        for ev in events_data:
+            ev["created_at"] = now
+            await db["fivetran_calendar.events"].insert_one(ev)
+            count += 1
+
+    elif source == "gmail":
+        emails_data = [
+            {"user_id": user_id, "subject": "Project Update", "from": "alice@company.com", "received_at": now, "source": "gmail"},
+            {"user_id": user_id, "subject": "Meeting Notes", "from": "bob@team.com", "received_at": now, "source": "gmail"},
+        ]
+        for em in emails_data:
+            em["created_at"] = now
+            await db["fivetran_gmail.messages"].insert_one(em)
+            count += 1
+
+    elif source == "fit":
+        fit_data = [
+            {"user_id": user_id, "date": (now - timedelta(days=i)).strftime("%Y-%m-%d"),
+             "steps": random.randint(5000, 12000), "sleep_hours": round(random.uniform(6, 8.5), 1),
+             "resting_heart_rate": random.randint(58, 72), "source": "fit"}
+            for i in range(7)
+        ]
+        for fd in fit_data:
+            fd["created_at"] = now
+            await db["fivetran_fit.daily_summary"].insert_one(fd)
+            count += 1
+
+    elif source == "plaid":
+        categories = ["Groceries", "Dining", "Transport", "Shopping", "Bills", "Entertainment"]
+        tx_data = [
+            {"user_id": user_id, "date": (now - timedelta(days=i)).strftime("%Y-%m-%d"),
+             "amount": round(random.uniform(5, 200), 2), "merchant": random.choice(["Walmart", "Uber", "Netflix", "Amazon", "Starbucks"]),
+             "category": random.choice(categories), "source": "plaid"}
+            for i in range(15)
+        ]
+        for tx in tx_data:
+            tx["created_at"] = now
+            await db["fivetran_plaid.transactions"].insert_one(tx)
+            count += 1
+
+    elif source == "todoist":
+        todo_data = [
+            {"user_id": user_id, "content": "Review weekly goals", "due": (now + timedelta(days=1)).strftime("%Y-%m-%d"), "priority": 1, "source": "todoist"},
+            {"user_id": user_id, "content": "Prepare presentation slides", "due": (now + timedelta(days=2)).strftime("%Y-%m-%d"), "priority": 2, "source": "todoist"},
+            {"user_id": user_id, "content": "Call dentist for appointment", "due": (now + timedelta(days=3)).strftime("%Y-%m-%d"), "priority": 3, "source": "todoist"},
+        ]
+        for td in todo_data:
+            td["created_at"] = now
+            await db["fivetran_todoist.tasks"].insert_one(td)
+            count += 1
+
+    elif source == "github":
+        gh_data = [
+            {"user_id": user_id, "repo": "user/project", "event_type": "push", "created_at": now, "source": "github"},
+            {"user_id": user_id, "repo": "user/docs", "event_type": "pull_request", "created_at": now, "source": "github"},
+        ]
+        for gh in gh_data:
+            await db["fivetran_github.events"].insert_one(gh)
+            count += 1
+
+    elif source == "strava":
+        strava_data = [
+            {"user_id": user_id, "activity_type": "Run", "distance_km": random.randint(3, 15),
+             "start_date": (now - timedelta(days=i)), "duration_minutes": random.randint(25, 60), "source": "strava"}
+            for i in range(5)
+        ]
+        for sd in strava_data:
+            sd["created_at"] = now
+            await db["fivetran_strava.activities"].insert_one(sd)
+            count += 1
+
+    elif source == "spotify":
+        spotify_data = [
+            {"user_id": user_id, "track": "Blinding Lights", "artist": "The Weeknd", "played_at": now, "source": "spotify"},
+            {"user_id": user_id, "track": "Flowers", "artist": "Miley Cyrus", "played_at": (now - timedelta(hours=2)), "source": "spotify"},
+        ]
+        for sp in spotify_data:
+            sp["created_at"] = now
+            await db["fivetran_spotify.history"].insert_one(sp)
+            count += 1
+
+    elif source == "uber":
+        uber_data = [
+            {"user_id": user_id, "trip_date": (now - timedelta(days=i)).strftime("%Y-%m-%d"),
+             "pickup": random.choice(["Home", "Office", "Airport"]), "dropoff": random.choice(["Office", "Airport", "Downtown", "Mall"]),
+             "fare": round(random.uniform(10, 50), 2), "source": "uber"}
+            for i in range(3)
+        ]
+        for ud in uber_data:
+            ud["created_at"] = now
+            await db["fivetran_uber.trips"].insert_one(ud)
+            count += 1
+
+    elif source == "doordash":
+        dd_data = [
+            {"user_id": user_id, "order_date": (now - timedelta(days=i)).strftime("%Y-%m-%d"),
+             "restaurant": random.choice(["Pizza Hut", "Chipotle", "Subway", "Thai Place"]),
+             "total": round(random.uniform(15, 45), 2), "source": "doordash"}
+            for i in range(5)
+        ]
+        for dd in dd_data:
+            dd["created_at"] = now
+            await db["fivetran_doordash.orders"].insert_one(dd)
+            count += 1
+
+    elif source == "amazon":
+        amz_data = [
+            {"user_id": user_id, "order_date": (now - timedelta(days=i*5)).strftime("%Y-%m-%d"),
+             "item": random.choice(["USB-C Hub", "Running Shoes", "Book: Atomic Habits", "Wireless Mouse"]),
+             "price": round(random.uniform(10, 80), 2), "source": "amazon"}
+            for i in range(3)
+        ]
+        for amz in amz_data:
+            amz["created_at"] = now
+            await db["fivetran_amazon.orders"].insert_one(amz)
+            count += 1
+
+    elif source == "netflix":
+        nf_data = [
+            {"user_id": user_id, "title": "Stranger Things S5", "watched_at": (now - timedelta(days=i)), "duration_minutes": random.randint(30, 60), "source": "netflix"}
+            for i in range(4)
+        ]
+        for nf in nf_data:
+            nf["created_at"] = now
+            await db["fivetran_netflix.viewing_history"].insert_one(nf)
+            count += 1
+
+    return count
 
 
 @router.delete("/connectors/{connector_id}")
@@ -546,9 +1012,23 @@ async def health():
             es_status = "connected"
         except Exception:
             es_status = "disconnected"
-        return {"status": "healthy", "database": "connected", "elasticsearch": es_status}
+        llm_status = "configured" if settings.gemini_api_key else "not configured"
+        return {"status": "healthy", "database": "connected", "elasticsearch": es_status, "llm": llm_status}
     except Exception as e:
         return {"status": "unhealthy", "database": str(e)}
+
+
+@router.get("/admin/health/llm")
+async def health_llm():
+    from app.services.llm_service import LLMService
+    if not settings.gemini_api_key:
+        return {"status": "not_configured", "message": "GEMINI_API_KEY not set in .env"}
+    llm = LLMService()
+    try:
+        response = await llm.generate("Reply with only the word: OK")
+        return {"status": "ok", "response": response}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
 
 
 @router.get("/admin/routes")

@@ -8,15 +8,16 @@ es_client: Optional[AsyncElasticsearch] = None
 
 async def connect_elasticsearch():
     global es_client
-    es_client = AsyncElasticsearch(
-        hosts=[settings.elasticsearch_host],
-        api_key=settings.elasticsearch_api_key,
-        request_timeout=3,
-    )
     try:
-        await asyncio.wait_for(es_client.info(), timeout=3)
+        test_client = AsyncElasticsearch(
+            hosts=[settings.elasticsearch_host],
+            api_key=settings.elasticsearch_api_key,
+            request_timeout=3,
+        )
+        await asyncio.wait_for(test_client.info(), timeout=3)
+        es_client = test_client
     except Exception:
-        pass
+        es_client = None
     return es_client
 
 

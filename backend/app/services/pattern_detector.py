@@ -44,7 +44,9 @@ class PatternDetector:
             latest = weekly_totals[weeks[-1]]
             prev = weekly_totals[weeks[-2]]
             if prev > 0 and latest > prev * 1.2:
-                dining = [t for t in recent if "dining" in [c.lower() for c in t.get("category", [])]]
+                dining = [t for t in recent if "dining" in (
+                    [c.lower() for c in (t.get("category") if isinstance(t.get("category"), list) else [t.get("category", "")])]
+                )]
                 dining_total = sum(abs(t.get("amount", 0)) for t in dining)
                 pattern_id = await self.pattern_service.upsert_pattern(
                     user_id, "finance", "budget_bleed",

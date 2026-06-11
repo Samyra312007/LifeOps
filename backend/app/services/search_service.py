@@ -10,11 +10,14 @@ class SearchService:
     async def _get_client(self):
         if self.client is None:
             self.client = get_es()
+        if self.client is None:
+            return None
         return self.client
 
     async def index_document(self, index: str, doc_id: str, body: dict):
         es = await self._get_client()
-        await es.index(index=index, id=doc_id, document=body)
+        if es is None:
+            return
 
     async def hybrid_search(
         self,
@@ -25,6 +28,8 @@ class SearchService:
         top_k: int = 10,
     ) -> list[dict]:
         es = await self._get_client()
+        if es is None:
+            return []
         must_clauses = [{"match": {"_all": query_text}}]
         if filters:
             must_clauses.append({"term": filters})
@@ -53,6 +58,8 @@ class SearchService:
         top_k: int = 20,
     ) -> list[dict]:
         es = await self._get_client()
+        if es is None:
+            return []
         must_clauses = [{"term": {"user_id": user_id}}, {"match": {"_all": query_text}}]
         if domains:
             must_clauses.append({"terms": {"domain": domains}})
@@ -63,16 +70,22 @@ class SearchService:
 
     async def create_index(self, index: str, mappings: dict):
         es = await self._get_client()
+        if es is None:
+            return
         exists = await es.indices.exists(index=index)
         if not exists:
             await es.indices.create(index=index, body={"mappings": mappings})
 
     async def delete_index(self, index: str):
         es = await self._get_client()
+        if es is None:
+            return
         await es.indices.delete(index=index, ignore_unavailable=True)
 
     async def bulk_index(self, index: str, documents: list[dict]):
         es = await self._get_client()
+        if es is None:
+            return
         operations = []
         for doc in documents:
             operations.append({"index": {"_index": index, "_id": doc.get("id")}})
