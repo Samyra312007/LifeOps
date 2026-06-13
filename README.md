@@ -2,6 +2,8 @@
 
 LifeOps is an intelligent agent that connects every app in your life, understands your patterns across all domains simultaneously, and takes real action on your behalf. It ingests data from 12+ sources — banking, fitness, calendar, email, tasks, GitHub, social, and more — and provides a unified AI interface for understanding and improving your life.
 
+Demo Video: https://youtu.be/8EGDvS--9f8?is=45pn4Besoz0upHay
+
 ## Architecture
 
 ```
